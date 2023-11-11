@@ -5,11 +5,13 @@ import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
 
-API_TOKEN = os.environ['API_TOKEN']
+from config_reader import config
+
+BOT_TOKEN = config.bot_token.get_secret_value()
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=API_TOKEN)
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 @dp.message(Command("start"))

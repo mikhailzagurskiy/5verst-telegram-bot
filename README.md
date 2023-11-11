@@ -37,8 +37,7 @@ pip install -r requirements.txt
 Before run:
 
 1. Create `.env` file
-2. Put `API_TOKEN` variable in file
-3. Apply `.env` file after activation of virtual environment
+2. Put `BOT_TOKEN` variable in file
 
 To run:
 
