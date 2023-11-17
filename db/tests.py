@@ -166,6 +166,10 @@ class TestMigrationManager(IsolatedAsyncioTestCase):
   def setUpClass(cls):
     cls.__migrations_path = os.path.join(
       tempfile.gettempdir(), "migrations_manager")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
     try:
       for (ver, migration) in cls.__migrations.items():
         cur_path = os.path.join(
@@ -211,9 +215,71 @@ class TestMigrationManager(IsolatedAsyncioTestCase):
           [version[0] for version in await cursor.fetchall()], list(self.__migrations.keys()))
 
 
+class TestConnectionPool(IsolatedAsyncioTestCase):
+  __migrations = {
+    "20231110_080000": {"name": "name1", "up": "create table a(field text)", "down": "drop table a"},
+    "20231110_090000": {"name": "name1", "up": "insert into a values('text1'),('text2'),('text3'),('text 4')", "down": "drop table a;\ncreate table a(field text)"},
+  }
+
+  @classmethod
+  def setUpClass(cls):
+    cls.__migrations_path = os.path.join(
+      tempfile.gettempdir(), "migrations_manager")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
 
     try:
+      for (ver, migration) in cls.__migrations.items():
+        cur_path = os.path.join(
+          cls.__migrations_path,
+          "%s-%s" % (ver, migration["name"])
+        )
+
+        os.makedirs(cur_path)
+
+        with open(os.path.join(cur_path, "up.sql"), "w") as f:
+          f.write(migration["up"])
+
+        with open(os.path.join(cur_path, "down.sql"), "w") as f:
+          f.write(migration["down"])
     except:
+      raise Exception("Unable to setup test suite")
 
+  @classmethod
+  def tearDownClass(cls):
+    try:
+      shutil.rmtree(cls.__migrations_path)
+    except:
+      raise Exception("Unable to teardown test suite")
 
+  async def test_using(self):
+    pool = ConnectionPool(":memory:", 2)
+    _con1 = await pool.connection()
+    _con2 = await pool.connection()
+    with self.assertRaises(RuntimeError):
+      _ = await pool.connection(1)
 
+    await pool.close()
+
+  async def test_using(self):
+    pool = ConnectionPool(":memory:", 2)
+    async with pool.connection() as conn:
+      manager: Manager = await Manager.create(conn, self.__migrations_path)
+
+      try:
+        await manager.execute_migrations(conn)
+      except:
+        self.fail("Migration.upgrade() raised unexpectedly")
+
+      async with conn.execute(
+        '''select name from sqlite_master where type = 'table' order by name''') as cursor:
+        tables = [table for table in await cursor.fetchall()]
+
+        self.assertEqual(tables[0][0], 'a')
+
+      async with conn.execute('''select version from migration_version''') as cursor:
+        self.assertListEqual(
+          [version[0] for version in await cursor.fetchall()], list(self.__migrations.keys()))
+
+    await pool.close()
