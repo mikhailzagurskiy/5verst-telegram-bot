@@ -1,15 +1,16 @@
-import sqlite3
+from aiosqlite import connect
 import shutil
 import os
 import tempfile
 from typing import List
 
-from unittest import TestCase
+from unittest import TestCase, IsolatedAsyncioTestCase
 
 from db.migration import Migration, Manager
+from db.pool import ConnectionPool
 
 
-class TestMigration(TestCase):
+class TestMigration(IsolatedAsyncioTestCase):
   __migrations = {
     "20231110_080000": {"name": "name1", "up": "create table a(field text)", "down": "drop table a"},
     "20231110_100000": {"name": "name2", "up": "create table b(field text)", "down": "drop table b"},
@@ -21,6 +22,10 @@ class TestMigration(TestCase):
   @classmethod
   def setUpClass(cls):
     cls.__migrations_path = os.path.join(tempfile.gettempdir(), "migrations")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
     try:
       for (ver, migration) in cls.__migrations.items():
         cur_path = os.path.join(
@@ -45,7 +50,7 @@ class TestMigration(TestCase):
     except:
       raise Exception("Unable to teardown test suite")
 
-  def test_construct_migration(self):
+  async def test_construct_migration(self):
     with self.assertRaises(TypeError):
       Migration(None)
 
@@ -66,7 +71,7 @@ class TestMigration(TestCase):
       except:
         self.fail("Migration() contructor raised unexpectedly on %s" % ver)
 
-  def test_get_version(self):
+  async def test_get_version(self):
     for (ver, migration) in self.__migrations.items():
       migration = Migration(
         os.path.join(
@@ -77,71 +82,67 @@ class TestMigration(TestCase):
 
       self.assertEqual(migration.get_version(), ver)
 
-  def test_up_migration(self):
-    conn = sqlite3.connect(":memory:")
-
-    migrations: List[Migration] = []
-    for (ver, migration) in self.__migrations.items():
-      migration = Migration(
-        os.path.join(
-          self.__migrations_path,
-          "%s-%s" % (ver, migration["name"])
+  async def test_up_migration(self):
+    async with connect(":memory:") as conn:
+      migrations: List[Migration] = []
+      for (ver, migration) in self.__migrations.items():
+        migration = Migration(
+          os.path.join(
+            self.__migrations_path,
+            "%s-%s" % (ver, migration["name"])
+          )
         )
-      )
 
-      migrations.append(migration)
+        migrations.append(migration)
 
-    try:
-      for migration in migrations:
-        migration.upgrade(conn)
-    except:
-      self.fail("Migration.upgrade() raised unexpectedly")
+      try:
+        for migration in migrations:
+          await migration.upgrade(conn)
+      except:
+        self.fail("Migration.upgrade() raised unexpectedly")
 
-    cursor = conn.execute(
-      '''select name from sqlite_master where type = 'table' order by name''')
-    tables = [table for table in cursor]
-    cursor.close()
+      async with conn.execute(
+        '''select name from sqlite_master where type = 'table' order by name''') as cursor:
+        tables = [table for table in await cursor.fetchall()]
 
-    self.assertEqual(tables[0][0], 'c')
-    self.assertEqual(tables[1][0], 'd')
+        self.assertEqual(tables[0][0], 'c')
+        self.assertEqual(tables[1][0], 'd')
 
-  def test_down_migration(self):
-    conn = sqlite3.connect(":memory:")
-
-    migrations: List[Migration] = []
-    for (ver, migration) in self.__migrations.items():
-      migration = Migration(
-        os.path.join(
-          self.__migrations_path,
-          "%s-%s" % (ver, migration["name"])
+  async def test_down_migration(self):
+    async with connect(":memory:") as conn:
+      migrations: List[Migration] = []
+      for (ver, migration) in self.__migrations.items():
+        migration = Migration(
+          os.path.join(
+            self.__migrations_path,
+            "%s-%s" % (ver, migration["name"])
+          )
         )
-      )
 
-      migrations.append(migration)
+        migrations.append(migration)
 
-    try:
-      for migration in migrations.copy():
-        migration.upgrade(conn)
-    except:
-      self.fail("Migration.upgrade() raised unexpectedly")
+      try:
+        for migration in migrations.copy():
+          await migration.upgrade(conn)
+      except:
+        self.fail("Migration.upgrade() raised unexpectedly")
 
-    migrations = migrations[3:]
-    migrations.reverse()
+      migrations = migrations[3:]
+      migrations.reverse()
 
-    try:
-      for migration in migrations:
-        migration.downgrade(conn)
-    except:
-      self.fail("Migration.downgrade() raised unexpectedly")
+      try:
+        for migration in migrations:
+          await migration.downgrade(conn)
+      except:
+        self.fail("Migration.downgrade() raised unexpectedly")
 
-    cursor = conn.execute(
-      '''select name from sqlite_master where type = 'table' order by name''')
-    tables = [table for table in cursor]
-    cursor.close()
+      async with conn.execute(
+        '''select name from sqlite_master where type = 'table' order by name''') as cursor:
+        tables = [table for table in await cursor.fetchall()]
 
-    self.assertEqual(tables[0][0], 'a')
-    self.assertEqual(tables[1][0], 'b')
-    self.assertEqual(tables[2][0], 'c')
+        self.assertEqual(tables[0][0], 'a')
+        self.assertEqual(tables[1][0], 'b')
+        self.assertEqual(tables[2][0], 'c')
 
 
 def list_dir(rootDir):
@@ -152,7 +153,7 @@ def list_dir(rootDir):
       list_dir(path)
 
 
-class TestMigrationManager(TestCase):
+class TestMigrationManager(IsolatedAsyncioTestCase):
   __migrations = {
     "20231110_080000": {"name": "name1", "up": "create table a(field text)", "down": "drop table a"},
     "20231110_100000": {"name": "name2", "up": "create table b(field text)", "down": "drop table b"},
@@ -189,25 +190,30 @@ class TestMigrationManager(TestCase):
     except:
       raise Exception("Unable to teardown test suite")
 
-  def test(self):
-    conn = sqlite3.connect(":memory:")
+  async def test(self):
+    async with connect(":memory:") as conn:
+      manager: Manager = await Manager.create(conn, self.__migrations_path)
 
-    manager = Manager(conn, self.__migrations_path)
+      try:
+        await manager.execute_migrations(conn)
+      except:
+        self.fail("Migration.upgrade() raised unexpectedly")
+
+      async with conn.execute(
+        '''select name from sqlite_master where type = 'table' order by name''') as cursor:
+        tables = [table for table in await cursor.fetchall()]
+
+        self.assertEqual(tables[0][0], 'c')
+        self.assertEqual(tables[1][0], 'd')
+
+      async with conn.execute('''select version from migration_version''') as cursor:
+        self.assertListEqual(
+          [version[0] for version in await cursor.fetchall()], list(self.__migrations.keys()))
+
+
 
     try:
-      manager.execute_migrations(conn)
     except:
-      self.fail("Migration.upgrade() raised unexpectedly")
 
-    cursor = conn.execute(
-      '''select name from sqlite_master where type = 'table' order by name''')
-    tables = [table for table in cursor]
-    cursor.close()
 
-    self.assertEqual(tables[0][0], 'c')
-    self.assertEqual(tables[1][0], 'd')
 
-    cursor = conn.execute('''select version from migration_version''')
-    self.assertListEqual(
-      [version[0] for version in cursor.fetchall()], list(self.__migrations.keys()))
-    cursor.close()

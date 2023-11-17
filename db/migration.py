@@ -4,9 +4,9 @@ Stolen from https://github.com/clutchski/caribou/blob/master/caribou.py
 
 import logging
 import glob
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 import os
-import sqlite3
+from aiosqlite import Connection, Cursor
 
 from typing import List
 
@@ -14,23 +14,23 @@ MIGRATION_TABLE = "migration_version"
 UTC_LENGTH = 14
 
 
-@contextmanager
-def execute_query(conn: sqlite3.Connection, sql, params=None) -> sqlite3.Cursor:
+@asynccontextmanager
+async def execute_query(conn: Connection, sql, params=None) -> Cursor:
   params = [] if params is None else params
-  cursor = conn.execute(sql, params)
+  cursor = await conn.execute(sql, params)
   try:
     yield cursor
   finally:
-    cursor.close()
+    await cursor.close()
 
 
-@contextmanager
-def execute_transaction(conn: sqlite3.Connection):
+@asynccontextmanager
+async def execute_transaction(conn: Connection):
   try:
     yield
-    conn.commit()
+    await conn.commit()
   except:
-    conn.rollback()
+    await conn.rollback()
     raise Exception('Unable execute transaction')
 
 
@@ -55,27 +55,30 @@ class Migration:
   def get_version(self):
     return self.version
 
-  def upgrade(self, conn: sqlite3.Connection):
+  async def upgrade(self, conn: Connection):
     logging.info('execute migration %s' % self.name)
     for stmt in self.up.split(';'):
-      conn.execute(stmt)
+      await conn.execute(stmt)
 
-  def downgrade(self, conn: sqlite3.Connection):
+  async def downgrade(self, conn: Connection):
     logging.info('rollback migration %s' % self.name)
     for stmt in self.down.split(';'):
-      conn.execute(stmt)
+      await conn.execute(stmt)
 
 
 class Manager:
   '''Controls migrations'''
 
-  def __init__(self, conn, migrations_path):
-
+  @classmethod
+  async def create(cls, conn, migrations_path):
+    self = cls()
     if not (os.path.exists(migrations_path) and os.path.isdir(migrations_path)):
       raise Exception('Specified incorrect migration path')
 
-    self.__init_migrations_version_control(conn)
-    self.migrations: List[Migration] = self.__init_migrations(migrations_path)
+    await self.__init_migrations_version_control(conn)
+    self.migrations = self.__init_migrations(migrations_path)
+
+    return self
 
   def __init_migrations(self, path):
     migration_files = list(
@@ -99,8 +102,8 @@ class Manager:
 
     return migrations
 
-  def execute_migrations(self, conn: sqlite3.Connection) -> bool:
-    current_version = self.__get_current_version(conn)
+  async def execute_migrations(self, conn: Connection) -> bool:
+    current_version = await self.__get_current_version(conn)
     new_version = current_version
     if not self.migrations or len(self.migrations) == 0:
       return False
@@ -109,26 +112,26 @@ class Manager:
       if migration.get_version() <= current_version:
         continue
 
-      migration.upgrade(conn)
+      await migration.upgrade(conn)
       new_version = migration.get_version()
-      with execute_transaction(conn):
-        conn.execute('''insert into %s values (:1)''' %
-                     MIGRATION_TABLE, [new_version])
+      async with execute_transaction(conn):
+        await conn.execute('''insert into %s values (:1)''' %
+                           MIGRATION_TABLE, [new_version])
 
     return True
 
-  def __init_migrations_version_control(self, conn: sqlite3.Connection):
-    if not self.__check_table_exists(conn, MIGRATION_TABLE):
-      with execute_transaction(conn):
-        conn.execute(
+  async def __init_migrations_version_control(self, conn: Connection):
+    if not await self.__check_table_exists(conn, MIGRATION_TABLE):
+      async with execute_transaction(conn):
+        await conn.execute(
           '''create table if not exists %s (version text)''' % MIGRATION_TABLE)
 
-  def __get_current_version(self, conn: sqlite3.Connection):
-    with execute_query(conn, '''select version from %s''' % MIGRATION_TABLE) as cursor:
-      result = cursor.fetchall()
+  async def __get_current_version(self, conn: Connection):
+    async with execute_query(conn, '''select version from %s''' % MIGRATION_TABLE) as cursor:
+      result = await cursor.fetchall()
       return result[0][0] if result else '0'
 
-  def __check_table_exists(self, conn: sqlite3.Connection, table_name):
+  async def __check_table_exists(self, conn: Connection, table_name):
     sql = '''select * from sqlite_master where type = 'table' and name = :1'''
-    with execute_query(conn, sql, [table_name]) as cursor:
-      return bool(cursor.fetchall())
+    async with execute_query(conn, sql, [table_name]) as cursor:
+      return bool(await cursor.fetchall())
