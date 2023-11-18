@@ -17,3 +17,17 @@ CREATE TABLE
     name TEXT NOT NULL,
     emoji TEXT NOT NULL
   );
+
+CREATE TABLE
+  Event (id INTEGER PRIMARY KEY, date TEXT NOT NULL);
+
+CREATE TABLE
+  EventVolunteer (
+    event_id INTEGER NOT NULL,
+    position_id INTEGER NOT NULL,
+    participant_id INTEGER NOT NULL,
+    PRIMARY KEY (event_id, position_id),
+    FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
+    FOREIGN KEY (position_id) REFERENCES VolunteerPosition (id) ON DELETE CASCADE,
+    FOREIGN KEY (participant_id) REFERENCES Participant (id) ON DELETE CASCADE
+  )

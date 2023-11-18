@@ -312,6 +312,20 @@ class TestDbManager(IsolatedAsyncioTestCase):
             name TEXT NOT NULL,
             emoji TEXT NOT NULL
           );
+
+        CREATE TABLE
+          Event (id INTEGER PRIMARY KEY, date TEXT NOT NULL);
+
+        CREATE TABLE
+          EventVolunteer (
+            event_id INTEGER NOT NULL,
+            position_id INTEGER NOT NULL,
+            participant_id INTEGER NOT NULL,
+            PRIMARY KEY (event_id, position_id),
+            FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
+            FOREIGN KEY (position_id) REFERENCES VolunteerPosition (id) ON DELETE CASCADE,
+            FOREIGN KEY (participant_id) REFERENCES Participant (id) ON DELETE CASCADE
+          );
       """,
       "down": """
         DROP TABLE Participant;
@@ -438,4 +452,82 @@ class TestDbManager(IsolatedAsyncioTestCase):
       self.fail("DbManager.delete_volunteer_position() raised unexpectedly")
 
     result = await self.manager.get_volunteer_position(id)
+    self.assertEqual(result, None)
+
+  async def test_register_event(self):
+    try:
+      id = await self.manager.register_event("2023-11-18 09:00:00.000")
+    except:
+      self.fail("DbManager.register_event() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+  async def test_get_event(self):
+    id = await self.manager.register_event("2023-11-18 09:00:00.000")
+
+    try:
+      row = await self.manager.get_event(id)
+    except:
+      self.fail("DbManager.get_event() raised unexpectedly")
+
+    self.assertEqual(row[0], 1)
+    self.assertEqual(row[1], "2023-11-18 09:00:00.000")
+
+  async def test_CRUD_event_volunteer(self):
+    event_id = await self.manager.register_event("2023-11-18 09:00:00.000")
+
+    pos_id1 = await self.manager.create_volunteer_position("Position1", "🦺")
+    pos_id2 = await self.manager.create_volunteer_position("Position2", "⏱️")
+    pos_id3 = await self.manager.create_volunteer_position("Position3", "🤸")
+
+    participant_id1 = await self.manager.register_participant("Participant1")
+    participant_id2 = await self.manager.register_participant("Participant2")
+    participant_id3 = await self.manager.register_participant("Participant3")
+    participant_id4 = await self.manager.register_participant("Participant4")
+
+    try:
+      row1 = await self.manager.create_event_volunteer(event_id, pos_id1, participant_id1)
+      row2 = await self.manager.create_event_volunteer(event_id, pos_id2, participant_id2)
+      row3 = await self.manager.create_event_volunteer(event_id, pos_id3, participant_id3)
+    except:
+      self.fail("DbManager.create_event_volunteer() raised unexpectedly")
+
+    self.assertEqual(row1[0], event_id)
+    self.assertEqual(row1[1], pos_id1)
+
+    self.assertEqual(row2[0], event_id)
+    self.assertEqual(row2[1], pos_id2)
+
+    self.assertEqual(row3[0], event_id)
+    self.assertEqual(row3[1], pos_id3)
+
+    try:
+      row = await self.manager.get_event_volunteer(event_id, pos_id2)
+    except:
+      self.fail("DbManager.get_event_volunteer() raised unexpectedly")
+
+    self.assertEqual(row[0], event_id)
+    self.assertEqual(row[1], pos_id2)
+    self.assertEqual(row[2], participant_id2)
+
+    try:
+      await self.manager.update_event_volunteer(event_id, pos_id2, participant_id4)
+    except:
+      self.fail("DbManager.update_event_volunteer() raised unexpectedly")
+
+    try:
+      row = await self.manager.get_event_volunteer(event_id, pos_id2)
+    except:
+      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+
+    self.assertEqual(row[0], event_id)
+    self.assertEqual(row[1], pos_id2)
+    self.assertEqual(row[2], participant_id4)
+
+    try:
+      await self.manager.delete_event_volenteer(event_id, pos_id3)
+    except:
+      self.fail("DbManager.delete_event_volenteer() raised unexpectedly")
+
+    result = await self.manager.get_event_volunteer(event_id, pos_id3)
     self.assertEqual(result, None)

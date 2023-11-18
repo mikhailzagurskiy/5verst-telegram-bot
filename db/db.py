@@ -65,5 +65,45 @@ class Manager:
       async with execute_transaction(conn):
         await conn.execute('''DELETE FROM VolunteerPosition WHERE id = :1''', [position_id])
 
+  async def register_event(self, date: str):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''INSERT INTO Event(date) VALUES(:1) RETURNING id''', [date]) as cursor:
+          row = await cursor.fetchone()
+          return row[0]
+
+  async def get_event(self, id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''SELECT * FROM Event WHERE id=:1''', [id]) as cursor:
+          row = await cursor.fetchone()
+          # TODO: Implement anonymous object
+          return row
+
+  async def create_event_volunteer(self, event_id: int, position_id: int, participant_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''INSERT INTO EventVolunteer(event_id, position_id, participant_id) VALUES(:1, :2, :3) RETURNING event_id, position_id''', [event_id, position_id, participant_id]) as cursor:
+          row = await cursor.fetchone()
+          return row
+
+  async def get_event_volunteer(self, event_id: int, position_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''SELECT * FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id]) as cursor:
+          row = await cursor.fetchone()
+          # TODO: Implement anonymous object
+          return row
+
+  async def update_event_volunteer(self, event_id: int, position_id: int, participant_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        await conn.execute('''UPDATE EventVolunteer SET participant_id=:1 WHERE event_id=:2 AND position_id=:3''', [participant_id, event_id, position_id])
+
+  async def delete_event_volenteer(self, event_id: int, position_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        await conn.execute('''DELETE FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id])
+
   async def close(self):
     await self.pool.close()
