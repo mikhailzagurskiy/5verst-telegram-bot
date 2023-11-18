@@ -1,4 +1,4 @@
-from aiosqlite import connect
+from aiosqlite import connect, DatabaseError
 import shutil
 import os
 import tempfile
@@ -305,11 +305,20 @@ class TestDbManager(IsolatedAsyncioTestCase):
 
         CREATE TABLE
           VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
+
+        CREATE TABLE
+          VolunteerPosition (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            emoji TEXT NOT NULL
+          );
       """,
       "down": """
         DROP TABLE Participant;
 
         DROP TABLE VerstParticipant;
+
+        DROP TABLE VolunteerPosition;
       """
     },
   }
@@ -346,74 +355,87 @@ class TestDbManager(IsolatedAsyncioTestCase):
     except:
       raise Exception("Unable to teardown test suite")
 
-  async def test_setup(self):
+  async def asyncSetUp(self):
     config = DbConfig()
     config.dbpath = ':memory:'
     config.max_connections = 2
     config.migrations_path = self.__migrations_path
 
-    manager = DbManager(config)
+    self.manager = DbManager(config)
+    await self.manager.setup()
+
+  async def asyncTearDown(self):
+    await self.manager.close()
+
+  async def test_setup(self):
     try:
-      await manager.setup()
+      await self.manager.setup()
     except:
       self.fail("DbManager.setup() raised unexpectedly")
 
-    await manager.close()
-
   async def test_register_participant(self):
-    config = DbConfig()
-    config.dbpath = ':memory:'
-    config.max_connections = 2
-    config.migrations_path = self.__migrations_path
-
-    manager = DbManager(config)
-    await manager.setup()
-
     try:
-      id = await manager.register_participant("qwerty")
+      id = await self.manager.register_participant("qwerty")
     except:
       self.fail("DbManager.register_participant() raised unexpectedly")
 
     self.assertEqual(id, 1)
 
-    await manager.close()
-
   async def test_register_verst_participant(self):
-    config = DbConfig()
-    config.dbpath = ':memory:'
-    config.max_connections = 2
-    config.migrations_path = self.__migrations_path
-
-    manager = DbManager(config)
-    await manager.setup()
-
-    id = await manager.register_participant("qwerty")
+    id = await self.manager.register_participant("qwerty")
 
     try:
-      await manager.register_verst_participant(id, 12345, "https://5verst.ru/userstats/12345")
+      await self.manager.register_verst_participant(id, 12345, "https://5verst.ru/userstats/12345")
     except:
       self.fail("DbManager.register_verst_participant() raised unexpectedly")
 
     self.assertEqual(id, 1)
 
-    await manager.close()
-
   async def test_update_participant(self):
-    config = DbConfig()
-    config.dbpath = ':memory:'
-    config.max_connections = 2
-    config.migrations_path = self.__migrations_path
-
-    manager = DbManager(config)
-    await manager.setup()
-
-    id = await manager.register_participant("qwerty")
+    id = await self.manager.register_participant("qwerty")
 
     try:
-      await manager.update_participant(id, "name", "surname")
+      await self.manager.update_participant(id, "name", "surname")
     except:
       self.fail("DbManager.update_participant() raised unexpectedly")
 
     self.assertEqual(id, 1)
 
-    await manager.close()
+  async def test_CRUD_volunteer_position(self):
+    try:
+      id = await self.manager.create_volunteer_position("Position1", "🦺")
+    except:
+      self.fail("DbManager.create_volunteer_position() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    try:
+      pos = await self.manager.get_volunteer_position(id)
+    except:
+      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+
+    self.assertEqual(pos[0], 1)
+    self.assertEqual(pos[1], "Position1")
+    self.assertEqual(pos[2], "🦺")
+
+    try:
+      pos = await self.manager.update_volunteer_position(id, "Position2", "⏱️")
+    except:
+      self.fail("DbManager.update_volunteer_position() raised unexpectedly")
+
+    try:
+      pos = await self.manager.get_volunteer_position(id)
+    except:
+      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+
+    self.assertEqual(pos[0], 1)
+    self.assertEqual(pos[1], "Position2")
+    self.assertEqual(pos[2], "⏱️")
+
+    try:
+      await self.manager.delete_volenteer_position(id)
+    except:
+      self.fail("DbManager.delete_volunteer_position() raised unexpectedly")
+
+    result = await self.manager.get_volunteer_position(id)
+    self.assertEqual(result, None)

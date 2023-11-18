@@ -38,7 +38,32 @@ class Manager:
   async def update_participant(self, participant_id: int, name: str, surname: str):
     async with self.pool.connection() as conn:
       async with execute_transaction(conn):
-        await conn.execute('''UPDATE Participant SET name=:1, surname=:2 WHERE id = :3''', [participant_id, name, surname])
+        await conn.execute('''UPDATE Participant SET name=:1, surname=:2 WHERE id = :3''', [name, surname, participant_id])
+
+  async def create_volunteer_position(self, name: str, emoji: str):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''INSERT INTO VolunteerPosition(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
+          row = await cursor.fetchone()
+          return row[0]
+
+  async def get_volunteer_position(self, position_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        async with conn.execute('''SELECT * FROM VolunteerPosition WHERE id=:1''', [position_id]) as cursor:
+          row = await cursor.fetchone()
+          # TODO: Implement anonymous object
+          return row
+
+  async def update_volunteer_position(self, position_id: int, name: str, emoji: str):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        await conn.execute('''UPDATE VolunteerPosition SET name=:1, emoji=:2 WHERE id=:3''', [name, emoji, position_id])
+
+  async def delete_volenteer_position(self, position_id: int):
+    async with self.pool.connection() as conn:
+      async with execute_transaction(conn):
+        await conn.execute('''DELETE FROM VolunteerPosition WHERE id = :1''', [position_id])
 
   async def close(self):
     await self.pool.close()

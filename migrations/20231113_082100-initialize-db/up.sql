@@ -10,3 +10,10 @@ CREATE TABLE
 
 CREATE TABLE
   VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
+
+CREATE TABLE
+  VolunteerPosition (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    emoji TEXT NOT NULL
+  );
