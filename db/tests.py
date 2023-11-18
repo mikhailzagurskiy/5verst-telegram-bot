@@ -8,6 +8,7 @@ from unittest import TestCase, IsolatedAsyncioTestCase
 
 from db.migration import Migration, Manager
 from db.pool import ConnectionPool
+from db.db import Manager as DbManager, Config as DbConfig
 
 
 class TestMigration(IsolatedAsyncioTestCase):
@@ -194,7 +195,7 @@ class TestMigrationManager(IsolatedAsyncioTestCase):
     except:
       raise Exception("Unable to teardown test suite")
 
-  async def test(self):
+  async def test_execute_migrations(self):
     async with connect(":memory:") as conn:
       manager: Manager = await Manager.create(conn, self.__migrations_path)
 
@@ -224,7 +225,7 @@ class TestConnectionPool(IsolatedAsyncioTestCase):
   @classmethod
   def setUpClass(cls):
     cls.__migrations_path = os.path.join(
-      tempfile.gettempdir(), "migrations_manager")
+      tempfile.gettempdir(), "connection_pool")
 
     if os.path.exists(cls.__migrations_path):
       shutil.rmtree(cls.__migrations_path)
@@ -253,12 +254,14 @@ class TestConnectionPool(IsolatedAsyncioTestCase):
     except:
       raise Exception("Unable to teardown test suite")
 
-  async def test_using(self):
+  async def test_not_opened_conenction(self):
     pool = ConnectionPool(":memory:", 2)
-    _con1 = await pool.connection()
-    _con2 = await pool.connection()
-    with self.assertRaises(RuntimeError):
-      _ = await pool.connection(1)
+
+    async with pool.connection(100) as conn1:
+      async with pool.connection(100) as conn2:
+        with self.assertRaises(RuntimeError):
+          async with pool.connection(1) as conn3:
+            pass
 
     await pool.close()
 
@@ -283,3 +286,73 @@ class TestConnectionPool(IsolatedAsyncioTestCase):
           [version[0] for version in await cursor.fetchall()], list(self.__migrations.keys()))
 
     await pool.close()
+
+
+class TestDbManager(IsolatedAsyncioTestCase):
+  __migrations = {
+    "20231110_080000": {"name": "name1", "up": "create table Participant(id INTEGER PRIMARY KEY, telegram_nickname TEXT NOT NULL, name TEXT)", "down": "drop table Participant"},
+  }
+
+  @classmethod
+  def setUpClass(cls):
+    cls.__migrations_path = os.path.join(
+      tempfile.gettempdir(), "db_manager")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
+    try:
+      for (ver, migration) in cls.__migrations.items():
+        cur_path = os.path.join(
+          cls.__migrations_path,
+          "%s-%s" % (ver, migration["name"])
+        )
+
+        os.makedirs(cur_path)
+
+        with open(os.path.join(cur_path, "up.sql"), "w") as f:
+          f.write(migration["up"])
+
+        with open(os.path.join(cur_path, "down.sql"), "w") as f:
+          f.write(migration["down"])
+    except:
+      raise Exception("Unable to setup test suite")
+
+  @classmethod
+  def tearDownClass(cls):
+    try:
+      shutil.rmtree(cls.__migrations_path)
+    except:
+      raise Exception("Unable to teardown test suite")
+
+  async def test_setup(self):
+    config = DbConfig()
+    config.dbpath = ':memory:'
+    config.max_connections = 2
+    config.migrations_path = self.__migrations_path
+
+    manager = DbManager(config)
+    try:
+      await manager.setup()
+    except:
+      self.fail("DbManager.setup() raised unexpectedly")
+
+    await manager.close()
+
+  async def test_register_participant(self):
+    config = DbConfig()
+    config.dbpath = ':memory:'
+    config.max_connections = 2
+    config.migrations_path = self.__migrations_path
+
+    manager = DbManager(config)
+    await manager.setup()
+
+    try:
+      id = await manager.register_participant("qwerty")
+    except:
+      self.fail("DbManager.register_participant() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    await manager.close()
