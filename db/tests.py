@@ -290,7 +290,28 @@ class TestConnectionPool(IsolatedAsyncioTestCase):
 
 class TestDbManager(IsolatedAsyncioTestCase):
   __migrations = {
-    "20231110_080000": {"name": "name1", "up": "create table Participant(id INTEGER PRIMARY KEY, telegram_nickname TEXT NOT NULL, name TEXT)", "down": "drop table Participant"},
+    "20231110_080000": {
+      "name": "name1",
+      "up": """
+        CREATE TABLE
+          Participant (
+            id INTEGER PRIMARY KEY,
+            telegram_nickname TEXT NOT NULL,
+            name TEXT,
+            surname TEXT,
+            verst_id INTEGER,
+            FOREIGN KEY (verst_id) REFERENCES VerstParticipant (id) ON DELETE CASCADE
+          );
+
+        CREATE TABLE
+          VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
+      """,
+      "down": """
+        DROP TABLE Participant;
+
+        DROP TABLE VerstParticipant;
+      """
+    },
   }
 
   @classmethod
@@ -352,6 +373,46 @@ class TestDbManager(IsolatedAsyncioTestCase):
       id = await manager.register_participant("qwerty")
     except:
       self.fail("DbManager.register_participant() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    await manager.close()
+
+  async def test_register_verst_participant(self):
+    config = DbConfig()
+    config.dbpath = ':memory:'
+    config.max_connections = 2
+    config.migrations_path = self.__migrations_path
+
+    manager = DbManager(config)
+    await manager.setup()
+
+    id = await manager.register_participant("qwerty")
+
+    try:
+      await manager.register_verst_participant(id, 12345, "https://5verst.ru/userstats/12345")
+    except:
+      self.fail("DbManager.register_verst_participant() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    await manager.close()
+
+  async def test_update_participant(self):
+    config = DbConfig()
+    config.dbpath = ':memory:'
+    config.max_connections = 2
+    config.migrations_path = self.__migrations_path
+
+    manager = DbManager(config)
+    await manager.setup()
+
+    id = await manager.register_participant("qwerty")
+
+    try:
+      await manager.update_participant(id, "name", "surname")
+    except:
+      self.fail("DbManager.update_participant() raised unexpectedly")
 
     self.assertEqual(id, 1)
 
