@@ -1,3 +1,5 @@
+import logging
+
 from db.migration import Manager as MigrationManager
 from db.pool import ConnectionPool, Connection
 from db.common import execute_query, execute_transaction
@@ -39,8 +41,8 @@ class Manager:
     await conn.execute('''INSERT INTO VerstParticipant VALUES(:1, :2)''', [verst_id, verst_link])
     await conn.execute('''UPDATE Participant SET verst_id=:1 WHERE id = :2''', [verst_id, participant_id])
 
-  async def update_participant(self, conn: Connection, participant_id: int, name: str, surname: str):
-    await conn.execute('''UPDATE Participant SET name=:1, surname=:2 WHERE id = :3''', [name, surname, participant_id])
+  async def update_participant(self, conn: Connection, participant_id: int, name: str, surname: str, age: int):
+    await conn.execute('''UPDATE Participant SET name=:1, surname=:2, age=:3 WHERE id = :4''', [name, surname, age, participant_id])
 
   async def create_volunteer_position(self, conn: Connection, name: str, emoji: str):
     async with conn.execute('''INSERT INTO VolunteerPosition(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
@@ -106,4 +108,5 @@ class Manager:
     await conn.execute('''DELETE FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id])
 
   async def close(self):
+    logging.debug("Close DBManager")
     await self.pool.close()

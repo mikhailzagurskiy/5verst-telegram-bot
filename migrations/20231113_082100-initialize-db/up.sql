@@ -4,6 +4,7 @@ CREATE TABLE
     telegram_nickname TEXT NOT NULL,
     name TEXT,
     surname TEXT,
+    age INTEGER,
     verst_id INTEGER,
     FOREIGN KEY (verst_id) REFERENCES VerstParticipant (id) ON DELETE CASCADE
   );

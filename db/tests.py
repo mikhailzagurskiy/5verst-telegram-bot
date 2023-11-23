@@ -8,7 +8,7 @@ from unittest import TestCase, IsolatedAsyncioTestCase
 
 from db.migration import Migration, Manager
 from db.pool import ConnectionPool
-from db.db import Manager as DbManager, Config as DbConfig
+from db.db import Manager as DbManager, Config as DBConfig
 
 
 class TestMigration(IsolatedAsyncioTestCase):
@@ -370,7 +370,7 @@ class TestDbManager(IsolatedAsyncioTestCase):
       raise Exception("Unable to teardown test suite")
 
   async def asyncSetUp(self):
-    config = DbConfig()
+    config = DBConfig()
     config.dbpath = ':memory:'
     config.max_connections = 2
     config.migrations_path = self.__migrations_path
@@ -412,7 +412,7 @@ class TestDbManager(IsolatedAsyncioTestCase):
       id = await self.manager.register_participant(conn, "qwerty")
 
       try:
-        await self.manager.update_participant(conn, id, "name", "surname")
+        await self.manager.update_participant(conn, id, "name", "surname", 10)
       except:
         self.fail("DbManager.update_participant() raised unexpectedly")
 
