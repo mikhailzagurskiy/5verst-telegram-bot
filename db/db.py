@@ -1,6 +1,8 @@
 from db.migration import Manager as MigrationManager
-from db.pool import ConnectionPool
+from db.pool import ConnectionPool, Connection
 from db.common import execute_query, execute_transaction
+
+from contextlib import asynccontextmanager
 
 
 class Config:
@@ -22,88 +24,86 @@ class Manager:
       except:
         raise RuntimeError("Unable to execute migrations on setup")
 
-  async def register_participant(self, telegram_nickname: str):
+  @asynccontextmanager
+  async def use_connection(self) -> Connection:
     async with self.pool.connection() as conn:
       async with execute_transaction(conn):
-        async with conn.execute('''INSERT INTO Participant(telegram_nickname) VALUES(:1) RETURNING id''', [telegram_nickname]) as cursor:
-          row = await cursor.fetchone()
-          return row[0]
+        yield conn
 
-  async def register_verst_participant(self, participant_id: int, verst_id: int, verst_link: str):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''INSERT INTO VerstParticipant VALUES(:1, :2)''', [verst_id, verst_link])
-        await conn.execute('''UPDATE Participant SET verst_id=:1 WHERE id = :2''', [verst_id, participant_id])
+  async def register_participant(self, conn: Connection, telegram_nickname: str):
+    async with conn.execute('''INSERT INTO Participant(telegram_nickname) VALUES(:1) RETURNING id''', [telegram_nickname]) as cursor:
+      row = await cursor.fetchone()
+      return row[0]
 
-  async def update_participant(self, participant_id: int, name: str, surname: str):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''UPDATE Participant SET name=:1, surname=:2 WHERE id = :3''', [name, surname, participant_id])
+  async def register_verst_participant(self, conn: Connection, participant_id: int, verst_id: int, verst_link: str):
+    await conn.execute('''INSERT INTO VerstParticipant VALUES(:1, :2)''', [verst_id, verst_link])
+    await conn.execute('''UPDATE Participant SET verst_id=:1 WHERE id = :2''', [verst_id, participant_id])
 
-  async def create_volunteer_position(self, name: str, emoji: str):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''INSERT INTO VolunteerPosition(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
-          row = await cursor.fetchone()
-          return row[0]
+  async def update_participant(self, conn: Connection, participant_id: int, name: str, surname: str):
+    await conn.execute('''UPDATE Participant SET name=:1, surname=:2 WHERE id = :3''', [name, surname, participant_id])
 
-  async def get_volunteer_position(self, position_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''SELECT * FROM VolunteerPosition WHERE id=:1''', [position_id]) as cursor:
-          row = await cursor.fetchone()
-          # TODO: Implement anonymous object
-          return row
+  async def create_volunteer_position(self, conn: Connection, name: str, emoji: str):
+    async with conn.execute('''INSERT INTO VolunteerPosition(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
+      row = await cursor.fetchone()
+      return row[0]
 
-  async def update_volunteer_position(self, position_id: int, name: str, emoji: str):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''UPDATE VolunteerPosition SET name=:1, emoji=:2 WHERE id=:3''', [name, emoji, position_id])
+  async def list_volunteer_positions(self, conn: Connection):
+    async with conn.execute('''SELECT * FROM VolunteerPosition''') as cursor:
+      rows = await cursor.fetchall()
+      # TODO: Implement anonymous object
+      return rows
 
-  async def delete_volenteer_position(self, position_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''DELETE FROM VolunteerPosition WHERE id = :1''', [position_id])
+  async def get_volunteer_position(self, conn: Connection, position_id: int):
+    async with conn.execute('''SELECT * FROM VolunteerPosition WHERE id=:1''', [position_id]) as cursor:
+      row = await cursor.fetchone()
+      # TODO: Implement anonymous object
+      return row
 
-  async def register_event(self, date: str):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''INSERT INTO Event(date) VALUES(:1) RETURNING id''', [date]) as cursor:
-          row = await cursor.fetchone()
-          return row[0]
+  async def update_volunteer_position(self, conn: Connection, position_id: int, name: str, emoji: str):
+    await conn.execute('''UPDATE VolunteerPosition SET name=:1, emoji=:2 WHERE id=:3''', [name, emoji, position_id])
 
-  async def get_event(self, id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''SELECT * FROM Event WHERE id=:1''', [id]) as cursor:
-          row = await cursor.fetchone()
-          # TODO: Implement anonymous object
-          return row
+  async def delete_volenteer_position(self, conn: Connection, position_id: int):
+    await conn.execute('''DELETE FROM VolunteerPosition WHERE id = :1''', [position_id])
 
-  async def create_event_volunteer(self, event_id: int, position_id: int, participant_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''INSERT INTO EventVolunteer(event_id, position_id, participant_id) VALUES(:1, :2, :3) RETURNING event_id, position_id''', [event_id, position_id, participant_id]) as cursor:
-          row = await cursor.fetchone()
-          return row
+  async def register_event(self, conn: Connection, date: str):
+    async with conn.execute('''INSERT INTO Event(date) VALUES(:1) RETURNING id''', [date]) as cursor:
+      row = await cursor.fetchone()
+      return row[0]
 
-  async def get_event_volunteer(self, event_id: int, position_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        async with conn.execute('''SELECT * FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id]) as cursor:
-          row = await cursor.fetchone()
-          # TODO: Implement anonymous object
-          return row
+  async def list_events(self, conn: Connection):
+    async with conn.execute('''SELECT * FROM Event''') as cursor:
+      rows = await cursor.fetchall()
+      # TODO: Implement anonymous object
+      return rows
 
-  async def update_event_volunteer(self, event_id: int, position_id: int, participant_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''UPDATE EventVolunteer SET participant_id=:1 WHERE event_id=:2 AND position_id=:3''', [participant_id, event_id, position_id])
+  async def get_event(self, conn: Connection, id: int):
+    async with conn.execute('''SELECT * FROM Event WHERE id=:1''', [id]) as cursor:
+      row = await cursor.fetchone()
+      # TODO: Implement anonymous object
+      return row
 
-  async def delete_event_volenteer(self, event_id: int, position_id: int):
-    async with self.pool.connection() as conn:
-      async with execute_transaction(conn):
-        await conn.execute('''DELETE FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id])
+  async def create_event_volunteer(self, conn: Connection, event_id: int, position_id: int, participant_id: int):
+    async with conn.execute('''INSERT INTO EventVolunteer(event_id, position_id, participant_id) VALUES(:1, :2, :3) RETURNING event_id, position_id''', [event_id, position_id, participant_id]) as cursor:
+      row = await cursor.fetchone()
+      return row
+
+  async def list_event_volunteers(self, conn: Connection, event_id: int):
+    async with conn.execute('''SELECT * FROM EventVolunteer WHERE event_id=:1''', [event_id]) as cursor:
+      rows = await cursor.fetchall()
+      # TODO: Implement anonymous object
+      return rows
+
+  async def get_event_volunteer(self, conn: Connection, event_id: int, position_id: int):
+    async with conn.execute('''SELECT * FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id]) as cursor:
+      row = await cursor.fetchone()
+      # TODO: Implement anonymous object
+      return row
+
+  async def update_event_volunteer(self, conn: Connection, event_id: int, position_id: int, participant_id: int):
+    await conn.execute('''UPDATE EventVolunteer SET participant_id=:1 WHERE event_id=:2 AND position_id=:3''', [participant_id, event_id, position_id])
+
+  async def delete_event_volenteer(self, conn: Connection, event_id: int, position_id: int):
+    await conn.execute('''DELETE FROM EventVolunteer WHERE event_id=:1 AND position_id=:2''', [event_id, position_id])
 
   async def close(self):
     await self.pool.close()

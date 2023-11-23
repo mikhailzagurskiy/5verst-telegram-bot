@@ -389,145 +389,152 @@ class TestDbManager(IsolatedAsyncioTestCase):
 
   async def test_register_participant(self):
     try:
-      id = await self.manager.register_participant("qwerty")
+      async with self.manager.use_connection() as conn:
+        id = await self.manager.register_participant(conn, "qwerty")
     except:
       self.fail("DbManager.register_participant() raised unexpectedly")
 
     self.assertEqual(id, 1)
 
   async def test_register_verst_participant(self):
-    id = await self.manager.register_participant("qwerty")
+    async with self.manager.use_connection() as conn:
+      id = await self.manager.register_participant(conn, "qwerty")
 
-    try:
-      await self.manager.register_verst_participant(id, 12345, "https://5verst.ru/userstats/12345")
-    except:
-      self.fail("DbManager.register_verst_participant() raised unexpectedly")
+      try:
+        await self.manager.register_verst_participant(conn, id, 12345, "https://5verst.ru/userstats/12345")
+      except:
+        self.fail("DbManager.register_verst_participant() raised unexpectedly")
 
-    self.assertEqual(id, 1)
+      self.assertEqual(id, 1)
 
   async def test_update_participant(self):
-    id = await self.manager.register_participant("qwerty")
+    async with self.manager.use_connection() as conn:
+      id = await self.manager.register_participant(conn, "qwerty")
 
-    try:
-      await self.manager.update_participant(id, "name", "surname")
-    except:
-      self.fail("DbManager.update_participant() raised unexpectedly")
+      try:
+        await self.manager.update_participant(conn, id, "name", "surname")
+      except:
+        self.fail("DbManager.update_participant() raised unexpectedly")
 
-    self.assertEqual(id, 1)
+      self.assertEqual(id, 1)
 
   async def test_CRUD_volunteer_position(self):
-    try:
-      id = await self.manager.create_volunteer_position("Position1", "🦺")
-    except:
-      self.fail("DbManager.create_volunteer_position() raised unexpectedly")
+    async with self.manager.use_connection() as conn:
+      try:
+        id = await self.manager.create_volunteer_position(conn, "Position1", "🦺")
+      except:
+        self.fail("DbManager.create_volunteer_position() raised unexpectedly")
 
-    self.assertEqual(id, 1)
+      self.assertEqual(id, 1)
 
-    try:
-      pos = await self.manager.get_volunteer_position(id)
-    except:
-      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+      try:
+        pos = await self.manager.get_volunteer_position(conn, id)
+      except:
+        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
 
-    self.assertEqual(pos[0], 1)
-    self.assertEqual(pos[1], "Position1")
-    self.assertEqual(pos[2], "🦺")
+      self.assertEqual(pos[0], 1)
+      self.assertEqual(pos[1], "Position1")
+      self.assertEqual(pos[2], "🦺")
 
-    try:
-      pos = await self.manager.update_volunteer_position(id, "Position2", "⏱️")
-    except:
-      self.fail("DbManager.update_volunteer_position() raised unexpectedly")
+      try:
+        pos = await self.manager.update_volunteer_position(conn, id, "Position2", "⏱️")
+      except:
+        self.fail("DbManager.update_volunteer_position() raised unexpectedly")
 
-    try:
-      pos = await self.manager.get_volunteer_position(id)
-    except:
-      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+      try:
+        pos = await self.manager.get_volunteer_position(conn, id)
+      except:
+        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
 
-    self.assertEqual(pos[0], 1)
-    self.assertEqual(pos[1], "Position2")
-    self.assertEqual(pos[2], "⏱️")
+      self.assertEqual(pos[0], 1)
+      self.assertEqual(pos[1], "Position2")
+      self.assertEqual(pos[2], "⏱️")
 
-    try:
-      await self.manager.delete_volenteer_position(id)
-    except:
-      self.fail("DbManager.delete_volunteer_position() raised unexpectedly")
+      try:
+        await self.manager.delete_volenteer_position(conn, id)
+      except:
+        self.fail("DbManager.delete_volunteer_position() raised unexpectedly")
 
-    result = await self.manager.get_volunteer_position(id)
-    self.assertEqual(result, None)
+      result = await self.manager.get_volunteer_position(conn, id)
+      self.assertEqual(result, None)
 
   async def test_register_event(self):
-    try:
-      id = await self.manager.register_event("2023-11-18 09:00:00.000")
-    except:
-      self.fail("DbManager.register_event() raised unexpectedly")
+    async with self.manager.use_connection() as conn:
+      try:
+        id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
+      except:
+        self.fail("DbManager.register_event() raised unexpectedly")
 
-    self.assertEqual(id, 1)
+      self.assertEqual(id, 1)
 
   async def test_get_event(self):
-    id = await self.manager.register_event("2023-11-18 09:00:00.000")
+    async with self.manager.use_connection() as conn:
+      id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
 
-    try:
-      row = await self.manager.get_event(id)
-    except:
-      self.fail("DbManager.get_event() raised unexpectedly")
+      try:
+        row = await self.manager.get_event(conn, id)
+      except:
+        self.fail("DbManager.get_event() raised unexpectedly")
 
-    self.assertEqual(row[0], 1)
-    self.assertEqual(row[1], "2023-11-18 09:00:00.000")
+      self.assertEqual(row[0], 1)
+      self.assertEqual(row[1], "2023-11-18 09:00:00.000")
 
   async def test_CRUD_event_volunteer(self):
-    event_id = await self.manager.register_event("2023-11-18 09:00:00.000")
+    async with self.manager.use_connection() as conn:
+      event_id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
 
-    pos_id1 = await self.manager.create_volunteer_position("Position1", "🦺")
-    pos_id2 = await self.manager.create_volunteer_position("Position2", "⏱️")
-    pos_id3 = await self.manager.create_volunteer_position("Position3", "🤸")
+      pos_id1 = await self.manager.create_volunteer_position(conn, "Position1", "🦺")
+      pos_id2 = await self.manager.create_volunteer_position(conn, "Position2", "⏱️")
+      pos_id3 = await self.manager.create_volunteer_position(conn, "Position3", "🤸")
 
-    participant_id1 = await self.manager.register_participant("Participant1")
-    participant_id2 = await self.manager.register_participant("Participant2")
-    participant_id3 = await self.manager.register_participant("Participant3")
-    participant_id4 = await self.manager.register_participant("Participant4")
+      participant_id1 = await self.manager.register_participant(conn, "Participant1")
+      participant_id2 = await self.manager.register_participant(conn, "Participant2")
+      participant_id3 = await self.manager.register_participant(conn, "Participant3")
+      participant_id4 = await self.manager.register_participant(conn, "Participant4")
 
-    try:
-      row1 = await self.manager.create_event_volunteer(event_id, pos_id1, participant_id1)
-      row2 = await self.manager.create_event_volunteer(event_id, pos_id2, participant_id2)
-      row3 = await self.manager.create_event_volunteer(event_id, pos_id3, participant_id3)
-    except:
-      self.fail("DbManager.create_event_volunteer() raised unexpectedly")
+      try:
+        row1 = await self.manager.create_event_volunteer(conn, event_id, pos_id1, participant_id1)
+        row2 = await self.manager.create_event_volunteer(conn, event_id, pos_id2, participant_id2)
+        row3 = await self.manager.create_event_volunteer(conn, event_id, pos_id3, participant_id3)
+      except:
+        self.fail("DbManager.create_event_volunteer() raised unexpectedly")
 
-    self.assertEqual(row1[0], event_id)
-    self.assertEqual(row1[1], pos_id1)
+      self.assertEqual(row1[0], event_id)
+      self.assertEqual(row1[1], pos_id1)
 
-    self.assertEqual(row2[0], event_id)
-    self.assertEqual(row2[1], pos_id2)
+      self.assertEqual(row2[0], event_id)
+      self.assertEqual(row2[1], pos_id2)
 
-    self.assertEqual(row3[0], event_id)
-    self.assertEqual(row3[1], pos_id3)
+      self.assertEqual(row3[0], event_id)
+      self.assertEqual(row3[1], pos_id3)
 
-    try:
-      row = await self.manager.get_event_volunteer(event_id, pos_id2)
-    except:
-      self.fail("DbManager.get_event_volunteer() raised unexpectedly")
+      try:
+        row = await self.manager.get_event_volunteer(conn, event_id, pos_id2)
+      except:
+        self.fail("DbManager.get_event_volunteer() raised unexpectedly")
 
-    self.assertEqual(row[0], event_id)
-    self.assertEqual(row[1], pos_id2)
-    self.assertEqual(row[2], participant_id2)
+      self.assertEqual(row[0], event_id)
+      self.assertEqual(row[1], pos_id2)
+      self.assertEqual(row[2], participant_id2)
 
-    try:
-      await self.manager.update_event_volunteer(event_id, pos_id2, participant_id4)
-    except:
-      self.fail("DbManager.update_event_volunteer() raised unexpectedly")
+      try:
+        await self.manager.update_event_volunteer(conn, event_id, pos_id2, participant_id4)
+      except:
+        self.fail("DbManager.update_event_volunteer() raised unexpectedly")
 
-    try:
-      row = await self.manager.get_event_volunteer(event_id, pos_id2)
-    except:
-      self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+      try:
+        row = await self.manager.get_event_volunteer(conn, event_id, pos_id2)
+      except:
+        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
 
-    self.assertEqual(row[0], event_id)
-    self.assertEqual(row[1], pos_id2)
-    self.assertEqual(row[2], participant_id4)
+      self.assertEqual(row[0], event_id)
+      self.assertEqual(row[1], pos_id2)
+      self.assertEqual(row[2], participant_id4)
 
-    try:
-      await self.manager.delete_event_volenteer(event_id, pos_id3)
-    except:
-      self.fail("DbManager.delete_event_volenteer() raised unexpectedly")
+      try:
+        await self.manager.delete_event_volenteer(conn, event_id, pos_id3)
+      except:
+        self.fail("DbManager.delete_event_volenteer() raised unexpectedly")
 
-    result = await self.manager.get_event_volunteer(event_id, pos_id3)
-    self.assertEqual(result, None)
+      result = await self.manager.get_event_volunteer(conn, event_id, pos_id3)
+      self.assertEqual(result, None)
