@@ -17,6 +17,7 @@ class ConnectionPool:
     if max_connections < 1:
       raise ValueError(
         'Invalid `max_connections` number. Should be greater that 0')
+
     self._max_connections = max_connections
     self._created_connections = 0
 

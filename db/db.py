@@ -3,25 +3,20 @@ import logging
 from db.migration import Manager as MigrationManager
 from db.pool import ConnectionPool, Connection
 from db.common import execute_query, execute_transaction
+from db.config import Config
 
 from contextlib import asynccontextmanager
-
-
-class Config:
-  dbpath: str
-  migrations_path: str
-  max_connections: int
 
 
 class Manager:
   def __init__(self, config: Config):
     self.config = config
-    self.pool = ConnectionPool(self.config.dbpath, self.config.max_connections)
+    self.pool = ConnectionPool(self.config.path, self.config.max_connections)
 
   async def setup(self):
     async with self.pool.connection() as conn:
       try:
-        manager = await MigrationManager.create(conn, self.config.migrations_path)
+        manager = await MigrationManager.create(conn, self.config.migrations)
         await manager.execute_migrations(conn)
       except:
         raise RuntimeError("Unable to execute migrations on setup")
