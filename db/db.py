@@ -20,6 +20,8 @@ class Manager:
         await manager.execute_migrations(conn)
       except:
         raise RuntimeError("Unable to execute migrations on setup")
+      finally:
+        await self.close()
 
   @asynccontextmanager
   async def use_connection(self) -> Connection:

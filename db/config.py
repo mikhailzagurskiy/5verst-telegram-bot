@@ -1,7 +1,8 @@
-from pydantic import BaseModel, FilePath, DirectoryPath, PositiveInt
+from typing import Union
+from pydantic import BaseModel, NewPath, FilePath, DirectoryPath, PositiveInt
 
 
 class Config(BaseModel):
-  path: FilePath
+  path: Union[FilePath, NewPath]
   migrations: DirectoryPath
   max_connections: PositiveInt

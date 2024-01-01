@@ -7,9 +7,11 @@ from aiogram.filters.command import Command
 
 from db.config import Config as DBConfig
 from db.db import Manager as DBManager
+
 from handlers.event_volunteer import router as event_volunteer_router
 from handlers.participant import router as participant_router
 from handlers.common import router as common_router
+
 from middlewares.db_middleware import DBMiddleware
 
 from settings import Settings
@@ -24,8 +26,13 @@ async def main():
   BOT_TOKEN = settings.bot_token.get_secret_value()
   bot = Bot(token=BOT_TOKEN)
 
+  dp = Dispatcher()
 
-  await db_manager.close()
+  await bot.delete_webhook(drop_pending_updates=True)
+  try:
+    await dp.start_polling(bot)
+  finally:
+    await db_manager.close()
 
 if __name__ == '__main__':
   logging.basicConfig(level=logging.DEBUG)

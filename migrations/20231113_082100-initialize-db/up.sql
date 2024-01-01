@@ -1,6 +1,6 @@
 CREATE TABLE
   Participant (
-    id INTEGER PRIMARY KEY,
+    id BIGINT PRIMARY KEY,
     telegram_nickname TEXT NOT NULL,
     name TEXT,
     surname TEXT,
