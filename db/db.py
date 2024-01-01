@@ -29,8 +29,8 @@ class Manager:
       async with execute_transaction(conn):
         yield conn
 
-  async def register_participant(self, conn: Connection, telegram_nickname: str):
-    async with conn.execute('''INSERT INTO Participant(telegram_nickname) VALUES(:1) RETURNING id''', [telegram_nickname]) as cursor:
+  async def register_participant(self, conn: Connection, telegram_id: int, telegram_nickname: str):
+    async with conn.execute('''INSERT INTO Participant(id, telegram_nickname) VALUES(:1, :2) RETURNING id''', [telegram_id, telegram_nickname]) as cursor:
       row = await cursor.fetchone()
       return row[0]
 
@@ -46,11 +46,26 @@ class Manager:
       row = await cursor.fetchone()
       return row[0]
 
+  async def list_participants(self, conn: Connection):
+    return await conn.execute_fetchall('''SELECT * FROM Participant''')
+
   async def list_volunteer_positions(self, conn: Connection):
     async with conn.execute('''SELECT * FROM VolunteerPosition''') as cursor:
       rows = await cursor.fetchall()
       # TODO: Implement anonymous object
       return rows
+
+  async def get_participant(self, conn: Connection, participant_id: int):
+    async with conn.execute('''SELECT * FROM Participant WHERE id=:1''', [participant_id]) as cursor:
+      row = await cursor.fetchone()
+      # TODO: Implement anonymous object
+      return row
+
+  async def find_participant(self, conn: Connection, telegram_nickname: str):
+    async with conn.execute('''SELECT * FROM Participant WHERE telegram_nickname=:1''', [telegram_nickname]) as cursor:
+      row = await cursor.fetchone()
+      # TODO: Implement anonymous object
+      return row
 
   async def get_volunteer_position(self, conn: Connection, position_id: int):
     async with conn.execute('''SELECT * FROM VolunteerPosition WHERE id=:1''', [position_id]) as cursor:

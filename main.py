@@ -27,6 +27,8 @@ async def main():
   bot = Bot(token=BOT_TOKEN)
 
   dp = Dispatcher()
+  dp.update.outer_middleware(DBMiddleware(db_manager))
+  dp.include_router(participant_router)
 
   await bot.delete_webhook(drop_pending_updates=True)
   try:
