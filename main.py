@@ -13,6 +13,7 @@ from handlers.participant import router as participant_router
 from handlers.common import router as common_router
 
 from middlewares.db_middleware import DBMiddleware
+from middlewares.participant_middleware import ParticipantMiddleware
 
 from settings import Settings
 
@@ -28,6 +29,10 @@ async def main():
 
   dp = Dispatcher()
   dp.update.outer_middleware(DBMiddleware(db_manager))
+  participant_router.message.outer_middleware(
+    ParticipantMiddleware(dp.fsm.storage))
+
+  dp.include_router(common_router)
   dp.include_router(participant_router)
 
   await bot.delete_webhook(drop_pending_updates=True)

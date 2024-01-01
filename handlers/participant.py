@@ -128,3 +128,4 @@ async def age_entered(message: Message, state: FSMContext, db_manager: DBManager
 @router.message(ParticipantRegistration.entering_age)
 async def wrong_age_entered(message: Message):
   await message.answer(text="Неверно введён возраст. Попробуйте ещё раз")
+  return ParticipantStatus.in_progress()

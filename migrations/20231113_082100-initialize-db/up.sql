@@ -26,7 +26,7 @@ CREATE TABLE
   EventVolunteer (
     event_id INTEGER NOT NULL,
     position_id INTEGER NOT NULL,
-    participant_id INTEGER NOT NULL,
+    participant_id BIGINT NOT NULL,
     PRIMARY KEY (event_id, position_id),
     FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
     FOREIGN KEY (position_id) REFERENCES VolunteerPosition (id) ON DELETE CASCADE,

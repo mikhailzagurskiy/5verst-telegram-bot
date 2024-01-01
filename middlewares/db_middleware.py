@@ -1,7 +1,7 @@
 from logging import debug
 from typing import Awaitable, Callable, Dict, Any
 from aiogram import BaseMiddleware
-from aiogram.types import Message
+from aiogram.types import Update
 
 from db.db import Manager as DbManager
 
@@ -12,8 +12,8 @@ class DBMiddleware(BaseMiddleware):
 
   async def __call__(
     self,
-    handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-    event: Message,
+    handler: Callable[[Update, Dict[str, Any]], Awaitable[Any]],
+    event: Update,
     data: Dict[str, Any]
   ) -> Any:
     data["db_manager"] = self.db_manager
