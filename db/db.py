@@ -64,30 +64,30 @@ class Manager:
 
   ########################################################################
 
-  # VolunteerPosition ####################################################
+  # Position ####################################################
 
   async def create_volunteer_position(self, conn: Connection, name: str, emoji: str, is_default: bool = False):
-    async with conn.execute('''INSERT INTO VolunteerPosition(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
+    async with conn.execute('''INSERT INTO Position(name, emoji) VALUES(:1, :2) RETURNING id''', [name, emoji]) as cursor:
       row = await cursor.fetchone()
       return row[0]
 
   async def list_volunteer_positions(self, conn: Connection):
-    async with conn.execute('''SELECT * FROM VolunteerPosition''') as cursor:
+    async with conn.execute('''SELECT * FROM Position''') as cursor:
       rows = await cursor.fetchall()
       # TODO: Implement anonymous object
       return rows
 
   async def get_volunteer_position(self, conn: Connection, position_id: int):
-    async with conn.execute('''SELECT * FROM VolunteerPosition WHERE id=:1''', [position_id]) as cursor:
+    async with conn.execute('''SELECT * FROM Position WHERE id=:1''', [position_id]) as cursor:
       row = await cursor.fetchone()
       # TODO: Implement anonymous object
       return row
 
   async def update_volunteer_position(self, conn: Connection, position_id: int, name: str, emoji: str):
-    await conn.execute('''UPDATE VolunteerPosition SET name=:1, emoji=:2 WHERE id=:3''', [name, emoji, position_id])
+    await conn.execute('''UPDATE Position SET name=:1, emoji=:2 WHERE id=:3''', [name, emoji, position_id])
 
   async def delete_volenteer_position(self, conn: Connection, position_id: int):
-    await conn.execute('''DELETE FROM VolunteerPosition WHERE id = :1''', [position_id])
+    await conn.execute('''DELETE FROM Position WHERE id = :1''', [position_id])
 
   ########################################################################
 

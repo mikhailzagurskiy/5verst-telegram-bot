@@ -10,20 +10,20 @@ from handlers.common import HandlerStatus
 router = Router()
 
 
-class VolunteerPositionStatus:
-  name = 'VolunteerPosition'
+class PositionStatus:
+  name = 'Position'
 
   def failed():
-    return HandlerStatus.failed(VolunteerPositionStatus.name)
+    return HandlerStatus.failed(PositionStatus.name)
 
   def in_progress():
-    return HandlerStatus.in_progress(VolunteerPositionStatus.name)
+    return HandlerStatus.in_progress(PositionStatus.name)
 
   def done():
-    return HandlerStatus.done(VolunteerPositionStatus.name)
+    return HandlerStatus.done(PositionStatus.name)
 
 
-class VolunteerPositionRegistration(StatesGroup):
+class PositionRegistration(StatesGroup):
   entering_name = State()
   entering_emoji = State()
 
@@ -31,49 +31,49 @@ class VolunteerPositionRegistration(StatesGroup):
 @router.message(StateFilter(None), Command("create_position"))
 async def cmd_create(message: Message, state: FSMContext):
   await message.answer(text=f"Название позиции:")
-  await state.set_state(VolunteerPositionRegistration.entering_name)
+  await state.set_state(PositionRegistration.entering_name)
 
-  return VolunteerPositionStatus.in_progress()
+  return PositionStatus.in_progress()
 
 
-@router.message(VolunteerPositionRegistration.entering_name, (F.text.len() > 2))
+@router.message(PositionRegistration.entering_name, (F.text.len() > 2))
 async def name_entered(message: Message, state: FSMContext):
   await state.update_data(name=message.text)
   await message.answer(text=f"Emoji позиции:")
-  await state.set_state(VolunteerPositionRegistration.entering_emoji)
+  await state.set_state(PositionRegistration.entering_emoji)
 
-  return VolunteerPositionStatus.in_progress()
+  return PositionStatus.in_progress()
 
 
-@router.message(VolunteerPositionRegistration.entering_name)
+@router.message(PositionRegistration.entering_name)
 async def wrong_name_entered(message: Message):
   await message.answer(text="Неверное название. Попробуйте ещё раз")
 
-  return VolunteerPositionStatus.in_progress()
+  return PositionStatus.in_progress()
 
 
-@router.message(VolunteerPositionRegistration.entering_emoji, (F.text.len() > 1 & F.text.len() < 5))
+@router.message(PositionRegistration.entering_emoji, (F.text.len() > 1 & F.text.len() < 5))
 async def emoji_entered(message: Message, state: FSMContext, db_manager: DBManager):
   await state.update_data(emoji=message.text)
-  volunteer_position = await state.get_data()
+  position = await state.get_data()
 
   # (TODO): Add confirmation request
 
   async with db_manager.use_connection() as conn:
-    await db_manager.create_volunteer_position(conn, volunteer_position["name"], volunteer_position["emoji"])
+    await db_manager.create_volunteer_position(conn, position["name"], position["emoji"])
 
-  await message.answer(text=f"Позиция {volunteer_position['name']}, {volunteer_position['emoji']} создана")
+  await message.answer(text=f"Позиция {position['name']}, {position['emoji']} создана")
 
   await state.clear()
 
-  return VolunteerPositionStatus.done()
+  return PositionStatus.done()
 
 
-@router.message(VolunteerPositionRegistration.entering_emoji)
+@router.message(PositionRegistration.entering_emoji)
 async def wrong_emoji_entered(message: Message):
   await message.answer(text="Неверное emoji. Попробуйте ещё раз")
 
-  return VolunteerPositionStatus.in_progress()
+  return PositionStatus.in_progress()
 
 
 @router.message(Command("list_positions"))
@@ -86,7 +86,7 @@ async def cmd_list(message: Message, db_manager: DBManager):
 
   await message.answer(text=f"Список позиций:\n\n{text_positions}")
 
-  return VolunteerPositionStatus.done()
+  return PositionStatus.done()
 
 
 @router.message(Command("delete"))

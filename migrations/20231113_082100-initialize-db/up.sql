@@ -14,7 +14,7 @@ CREATE TABLE
   VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
 
 CREATE TABLE
-  VolunteerPosition (
+  Position(
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     emoji TEXT NOT NULL,
@@ -31,6 +31,6 @@ CREATE TABLE
     participant_id BIGINT NOT NULL,
     PRIMARY KEY (event_id, position_id),
     FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
-    FOREIGN KEY (position_id) REFERENCES VolunteerPosition (id) ON DELETE CASCADE,
+    FOREIGN KEY (position_id) REFERENCES Position(id) ON DELETE CASCADE,
     FOREIGN KEY (participant_id) REFERENCES Participant (id) ON DELETE CASCADE
   )

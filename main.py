@@ -1,6 +1,5 @@
 import logging
 import asyncio
-import os
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
@@ -11,7 +10,7 @@ from db.db import Manager as DBManager
 from handlers.event_volunteer import router as event_volunteer_router
 from handlers.participant import router as participant_router
 from handlers.common import router as common_router
-from handlers.volunteer_position import router as volunteer_position_router
+from handlers.position import router as position_router
 from handlers.event import router as event_router
 
 from middlewares.db_middleware import DBMiddleware
@@ -36,7 +35,7 @@ async def main():
 
   dp.include_router(common_router)
   dp.include_router(participant_router)
-  dp.include_router(volunteer_position_router)
+  dp.include_router(position_router)
   dp.include_router(event_router)
 
   await bot.delete_webhook(drop_pending_updates=True)
