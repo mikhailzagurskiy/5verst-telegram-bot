@@ -4,7 +4,6 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from db.pool import Connection
 from db.db import Manager as DBManager
 from handlers.common import HandlerStatus
 
@@ -112,6 +111,8 @@ async def age_entered(message: Message, state: FSMContext, db_manager: DBManager
   except:
     # TODO
     pass
+
+  # (TODO): Add confirmation request
 
   await state.update_data(age=age)
   participant = await state.get_data()

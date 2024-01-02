@@ -11,6 +11,7 @@ from db.db import Manager as DBManager
 from handlers.event_volunteer import router as event_volunteer_router
 from handlers.participant import router as participant_router
 from handlers.common import router as common_router
+from handlers.volunteer_position import router as volunteer_position_router
 
 from middlewares.db_middleware import DBMiddleware
 from middlewares.participant_middleware import ParticipantMiddleware
@@ -34,6 +35,7 @@ async def main():
 
   dp.include_router(common_router)
   dp.include_router(participant_router)
+  dp.include_router(volunteer_position_router)
 
   await bot.delete_webhook(drop_pending_updates=True)
   try:

@@ -5,6 +5,7 @@ CREATE TABLE
     name TEXT,
     surname TEXT,
     age INTEGER,
+    is_admin BOOLEAN DEFAULT FALSE,
     verst_id INTEGER,
     FOREIGN KEY (verst_id) REFERENCES VerstParticipant (id) ON DELETE CASCADE
   );
@@ -16,7 +17,8 @@ CREATE TABLE
   VolunteerPosition (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
-    emoji TEXT NOT NULL
+    emoji TEXT NOT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE
   );
 
 CREATE TABLE
