@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from aiogram.fsm.storage.base import StorageKey
 
-from db.db import Manager as DbManager
+from db.manager import Manager as DbManager
 from handlers.participant import cmd_register_participant
 
 
@@ -36,8 +36,7 @@ class ParticipantMiddleware(BaseMiddleware):
       new_context = FSMContext(self.storage, storage_key)
       res = await cmd_register_participant(message, new_context, db_manager)
     else:
-      debug(
-        f'Identified as {participant[3]} {participant[2]} ({participant[4]})')
+      debug(f'Identified as {participant}')
       data["participant"] = participant
       res = await handler(message, data)
       debug(f'Handler {res}')

@@ -6,15 +6,11 @@ CREATE TABLE
     surname TEXT,
     age INTEGER,
     is_admin BOOLEAN DEFAULT FALSE,
-    verst_id INTEGER,
-    FOREIGN KEY (verst_id) REFERENCES VerstParticipant (id) ON DELETE CASCADE
+    verst_id INTEGER
   );
 
 CREATE TABLE
-  VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
-
-CREATE TABLE
-  Position(
+  Role (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     emoji TEXT NOT NULL,
@@ -22,15 +18,20 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  Event (id INTEGER PRIMARY KEY, date TEXT NOT NULL);
+  Event (
+    id INTEGER PRIMARY KEY,
+    event_date TEXT NOT NULL,
+    event_time TEXT NOT NULL,
+    description TEXT
+  );
 
 CREATE TABLE
-  EventVolunteer (
+  Volunteer (
     event_id INTEGER NOT NULL,
-    position_id INTEGER NOT NULL,
-    participant_id BIGINT NOT NULL,
-    PRIMARY KEY (event_id, position_id),
-    FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
-    FOREIGN KEY (position_id) REFERENCES Position(id) ON DELETE CASCADE,
-    FOREIGN KEY (participant_id) REFERENCES Participant (id) ON DELETE CASCADE
-  )
+    role_id INTEGER NOT NULL,
+    participant_id BIGINT,
+    PRIMARY KEY (event_id, role_id),
+    FOREIGN KEY (event_id) REFERENCES Event (id),
+    FOREIGN KEY (role_id) REFERENCES Position(id),
+    FOREIGN KEY (participant_id) REFERENCES Participant (id)
+  );

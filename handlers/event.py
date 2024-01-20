@@ -5,7 +5,7 @@ from aiogram.types import Message
 from aiogram.filters import Command, StateFilter, CommandObject
 from aiogram.fsm.context import FSMContext
 
-from db.db import Manager as DBManager
+from db.manager import Manager as DBManager
 from handlers.common import HandlerStatus
 
 router = Router()

@@ -3,7 +3,7 @@ from typing import Awaitable, Callable, Dict, Any
 from aiogram import BaseMiddleware
 from aiogram.types import Update
 
-from db.db import Manager as DbManager
+from db.manager import Manager as DbManager
 
 
 class DBMiddleware(BaseMiddleware):

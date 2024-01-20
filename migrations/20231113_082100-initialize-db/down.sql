@@ -1,9 +1,7 @@
 DROP TABLE Participant;
 
-DROP TABLE VerstParticipant;
-
-DROP TABLE Position;
+DROP TABLE Role;
 
 DROP TABLE Event;
 
-DROP TABLE EventVolunteer;
+DROP TABLE Volunteer;

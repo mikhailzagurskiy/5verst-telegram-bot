@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
 
 from db.config import Config as DBConfig
-from db.db import Manager as DBManager
+from db.manager import Manager as DBManager
 
 from handlers.event_volunteer import router as event_volunteer_router
 from handlers.participant import router as participant_router
