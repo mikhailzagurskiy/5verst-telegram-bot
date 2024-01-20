@@ -8,7 +8,12 @@ from unittest import TestCase, IsolatedAsyncioTestCase
 
 from db.migration import Migration, Manager
 from db.pool import ConnectionPool
-from db.db import Manager as DbManager, Config as DBConfig
+from db.manager import Manager as DbManager, Config as DBConfig
+
+from db.orm.participant import ParticipantOrm
+from db.orm.role import RoleOrm
+from db.orm.event import EventOrm
+from db.orm.volunteer import VolunteerOrm
 
 
 class TestMigration(IsolatedAsyncioTestCase):
@@ -288,6 +293,371 @@ class TestConnectionPool(IsolatedAsyncioTestCase):
     await pool.close()
 
 
+class TestParticipantOrm(IsolatedAsyncioTestCase):
+  __migrations = {
+    "20231110_080000": {
+      "name": "name1",
+      "up": """
+        CREATE TABLE
+          Participant (
+            id BIGINT PRIMARY KEY,
+            telegram_nickname TEXT NOT NULL,
+            name TEXT,
+            surname TEXT,
+            age INTEGER,
+            is_admin BOOLEAN DEFAULT FALSE,
+            verst_id INTEGER
+          );
+      """,
+      "down": """
+        DROP TABLE Participant;
+      """
+    }
+  }
+
+  @classmethod
+  def setUpClass(cls):
+    cls.__migrations_path = os.path.join(
+      tempfile.gettempdir(), "participant_orm")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
+    try:
+      for (ver, migration) in cls.__migrations.items():
+        cur_path = os.path.join(
+          cls.__migrations_path,
+          "%s-%s" % (ver, migration["name"])
+        )
+
+        os.makedirs(cur_path)
+
+        with open(os.path.join(cur_path, "up.sql"), "w") as f:
+          f.write(migration["up"])
+
+        with open(os.path.join(cur_path, "down.sql"), "w") as f:
+          f.write(migration["down"])
+    except:
+      raise Exception("Unable to setup test suite")
+
+  @classmethod
+  def tearDownClass(cls):
+    try:
+      shutil.rmtree(cls.__migrations_path)
+    except:
+      raise Exception("Unable to teardown test suite")
+
+  async def asyncSetUp(self):
+    config = DBConfig(path=':memory:', max_connections=2,
+                      migrations=self.__migrations_path)
+
+    self.manager = DbManager(config)
+    await self.manager.setup()
+
+  async def asyncTearDown(self):
+    await self.manager.close()
+
+  async def test_CRUD(self):
+    orm = ParticipantOrm()
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.register(conn, 12345, "qwerty")
+    except:
+      self.fail("ParticipantOrm.register() raised unexpectedly")
+
+    self.assertEqual(id, 12345)
+
+    try:
+      await orm.update(conn, id, **{"name": "new_name", "surname": "new_surname", "age": 10})
+    except:
+      self.fail("ParticipantOrm.update() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        participant = await orm.get(conn, id)
+    except:
+      self.fail("ParticipantOrm.get() raised unexpectedly")
+
+    self.assertEqual(participant.age, 10)
+    self.assertEqual(participant.name, "new_name")
+    self.assertEqual(participant.surname, "new_surname")
+    self.assertEqual(participant.id, 12345)
+    self.assertEqual(participant.telegram_nickname, "qwerty")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.register(conn, 12346, "qwerty1")
+    except:
+      self.fail("ParticipantOrm.register() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        participants = await orm.list(conn)
+    except:
+      self.fail("ParticipantOrm.list() raised unexpectedly")
+
+    self.assertEqual(len(participants), 2)
+    self.assertEqual(participants[0].id, 12345)
+    self.assertEqual(participants[0].telegram_nickname, "qwerty")
+    self.assertEqual(participants[1].id, 12346)
+    self.assertEqual(participants[1].telegram_nickname, "qwerty1")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        await orm.delete(conn, id)
+    except:
+      self.fail("ParticipantOrm.delete() raised unexpectedly")
+
+
+class TestRoleOrm(IsolatedAsyncioTestCase):
+  __migrations = {
+    "20231110_080000": {
+      "name": "name1",
+      "up": """
+        CREATE TABLE
+          Role (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            emoji TEXT NOT NULL,
+            is_default BOOLEAN NOT NULL DEFAULT FALSE
+          );
+      """,
+      "down": """
+        DROP TABLE Role;
+      """
+    }
+  }
+
+  @classmethod
+  def setUpClass(cls):
+    cls.__migrations_path = os.path.join(
+      tempfile.gettempdir(), "role_orm")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
+    try:
+      for (ver, migration) in cls.__migrations.items():
+        cur_path = os.path.join(
+          cls.__migrations_path,
+          "%s-%s" % (ver, migration["name"])
+        )
+
+        os.makedirs(cur_path)
+
+        with open(os.path.join(cur_path, "up.sql"), "w") as f:
+          f.write(migration["up"])
+
+        with open(os.path.join(cur_path, "down.sql"), "w") as f:
+          f.write(migration["down"])
+    except:
+      raise Exception("Unable to setup test suite")
+
+  @classmethod
+  def tearDownClass(cls):
+    try:
+      shutil.rmtree(cls.__migrations_path)
+    except:
+      raise Exception("Unable to teardown test suite")
+
+  async def asyncSetUp(self):
+    config = DBConfig(path=':memory:', max_connections=2,
+                      migrations=self.__migrations_path)
+
+    self.manager = DbManager(config)
+    await self.manager.setup()
+
+  async def asyncTearDown(self):
+    await self.manager.close()
+
+  async def test_CRUD(self):
+    orm = RoleOrm()
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, "Role1", "🦺")
+    except:
+      self.fail("RoleOrm.create() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    try:
+      await orm.update(conn, id, **{"is_default": True, "emoji": "⏱️"})
+    except:
+      self.fail("RoleOrm.update() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    try:
+      async with self.manager.use_connection() as conn:
+        role = await orm.get(conn, id)
+    except:
+      self.fail("RoleOrm.get() raised unexpectedly")
+
+    self.assertEqual(role.name, "Role1")
+    self.assertEqual(role.id, 1)
+    self.assertEqual(role.emoji, "⏱️")
+    self.assertEqual(role.is_default, True)
+
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, "Role2", "🤸")
+    except:
+      self.fail("RoleOrm.create() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        roles = await orm.list(conn)
+    except:
+      self.fail("RoleOrm.list() raised unexpectedly")
+
+    self.assertEqual(len(roles), 2)
+    self.assertEqual(roles[0].id, 1)
+    self.assertEqual(roles[0].name, "Role1")
+    self.assertEqual(roles[0].emoji, "⏱️")
+    self.assertEqual(roles[0].is_default, True)
+    self.assertEqual(roles[1].id, 2)
+    self.assertEqual(roles[1].name, "Role2")
+    self.assertEqual(roles[1].emoji, "🤸")
+    self.assertEqual(roles[1].is_default, False)
+
+    try:
+      async with self.manager.use_connection() as conn:
+        await orm.delete(conn, id)
+    except:
+      self.fail("RoleOrm.delete() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        role = await orm.get(conn, id)
+    except:
+      self.fail("RoleOrm.get() raised unexpectedly")
+
+    self.assertEqual(role, None)
+
+
+class TestEventOrm(IsolatedAsyncioTestCase):
+  __migrations = {
+    "20231110_080000": {
+      "name": "name1",
+      "up": """
+        CREATE TABLE
+          Event (
+            id INTEGER PRIMARY KEY,
+            event_date TEXT NOT NULL,
+            event_time TEXT NOT NULL,
+            description TEXT
+          );
+      """,
+      "down": """
+        DROP TABLE Event;
+      """
+    }
+  }
+
+  @classmethod
+  def setUpClass(cls):
+    cls.__migrations_path = os.path.join(
+      tempfile.gettempdir(), "event_orm")
+
+    if os.path.exists(cls.__migrations_path):
+      shutil.rmtree(cls.__migrations_path)
+
+    try:
+      for (ver, migration) in cls.__migrations.items():
+        cur_path = os.path.join(
+          cls.__migrations_path,
+          "%s-%s" % (ver, migration["name"])
+        )
+
+        os.makedirs(cur_path)
+
+        with open(os.path.join(cur_path, "up.sql"), "w") as f:
+          f.write(migration["up"])
+
+        with open(os.path.join(cur_path, "down.sql"), "w") as f:
+          f.write(migration["down"])
+    except:
+      raise Exception("Unable to setup test suite")
+
+  @classmethod
+  def tearDownClass(cls):
+    try:
+      shutil.rmtree(cls.__migrations_path)
+    except:
+      raise Exception("Unable to teardown test suite")
+
+  async def asyncSetUp(self):
+    config = DBConfig(path=':memory:', max_connections=2,
+                      migrations=self.__migrations_path)
+
+    self.manager = DbManager(config)
+    await self.manager.setup()
+
+  async def asyncTearDown(self):
+    await self.manager.close()
+
+  async def test_CRUD(self):
+    orm = EventOrm()
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, "2024-01-21", "09:00")
+    except:
+      self.fail("EventOrm.create() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    try:
+      await orm.update(conn, id, **{"event_date": "2024-01-20", "event_time": "10:00"})
+    except:
+      self.fail("EventOrm.update() raised unexpectedly")
+
+    self.assertEqual(id, 1)
+
+    try:
+      async with self.manager.use_connection() as conn:
+        event = await orm.get(conn, id)
+    except:
+      self.fail("EventOrm.get() raised unexpectedly")
+
+    self.assertEqual(event.id, 1)
+    self.assertEqual(event.event_date.isoformat(), "2024-01-20")
+    self.assertEqual(event.event_time.isoformat(), "10:00:00")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, "2024-02-02", "09:00")
+    except:
+      self.fail("EventOrm.create() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        events = await orm.list(conn)
+    except:
+      self.fail("EventOrm.list() raised unexpectedly")
+
+    self.assertEqual(len(events), 2)
+    self.assertEqual(events[0].id, 1)
+    self.assertEqual(events[0].event_date.isoformat(), "2024-01-20")
+    self.assertEqual(events[0].event_time.isoformat(), "10:00:00")
+    self.assertEqual(events[1].id, 2)
+    self.assertEqual(events[1].event_date.isoformat(), "2024-02-02")
+    self.assertEqual(events[1].event_time.isoformat(), "09:00:00")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        await orm.delete(conn, id)
+    except:
+      self.fail("EventOrm.delete() raised unexpectedly")
+
+    try:
+      async with self.manager.use_connection() as conn:
+        event = await orm.get(conn, id)
+    except:
+      self.fail("EventOrm.get() raised unexpectedly")
+
+    self.assertEqual(event, None)
+
+
 class TestDbManager(IsolatedAsyncioTestCase):
   __migrations = {
     "20231110_080000": {
@@ -295,44 +665,50 @@ class TestDbManager(IsolatedAsyncioTestCase):
       "up": """
         CREATE TABLE
           Participant (
-            id INTEGER PRIMARY KEY,
+            id BIGINT PRIMARY KEY,
             telegram_nickname TEXT NOT NULL,
             name TEXT,
             surname TEXT,
-            verst_id INTEGER,
-            FOREIGN KEY (verst_id) REFERENCES VerstParticipant (id) ON DELETE CASCADE
+            age INTEGER,
+            is_admin BOOLEAN DEFAULT FALSE,
+            verst_id INTEGER
           );
 
         CREATE TABLE
-          VerstParticipant (id INTEGER PRIMARY KEY, link TEXT NOT NULL);
-
-        CREATE TABLE
-          Position (
+          Role (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
-            emoji TEXT NOT NULL
+            emoji TEXT NOT NULL,
+            is_default BOOLEAN NOT NULL DEFAULT FALSE
           );
 
         CREATE TABLE
-          Event (id INTEGER PRIMARY KEY, date TEXT NOT NULL);
+          Event (
+            id INTEGER PRIMARY KEY,
+            event_date TEXT NOT NULL,
+            event_time TEXT NOT NULL,
+            description TEXT
+          );
 
         CREATE TABLE
-          EventVolunteer (
+          Volunteer (
             event_id INTEGER NOT NULL,
-            position_id INTEGER NOT NULL,
-            participant_id INTEGER NOT NULL,
-            PRIMARY KEY (event_id, position_id),
-            FOREIGN KEY (event_id) REFERENCES Event (id) ON DELETE CASCADE,
-            FOREIGN KEY (position_id) REFERENCES Position (id) ON DELETE CASCADE,
-            FOREIGN KEY (participant_id) REFERENCES Participant (id) ON DELETE CASCADE
+            role_id INTEGER NOT NULL,
+            participant_id BIGINT,
+            PRIMARY KEY (event_id, role_id),
+            FOREIGN KEY (event_id) REFERENCES Event (id),
+            FOREIGN KEY (role_id) REFERENCES Position(id),
+            FOREIGN KEY (participant_id) REFERENCES Participant (id)
           );
       """,
       "down": """
         DROP TABLE Participant;
 
-        DROP TABLE VerstParticipant;
+        DROP TABLE Role;
 
-        DROP TABLE Position;
+        DROP TABLE Event;
+
+        DROP TABLE Volunteer;
       """
     },
   }
@@ -370,10 +746,8 @@ class TestDbManager(IsolatedAsyncioTestCase):
       raise Exception("Unable to teardown test suite")
 
   async def asyncSetUp(self):
-    config = DBConfig()
-    config.dbpath = ':memory:'
-    config.max_connections = 2
-    config.migrations_path = self.__migrations_path
+    config = DBConfig(path=':memory:', max_connections=2,
+                      migrations=self.__migrations_path)
 
     self.manager = DbManager(config)
     await self.manager.setup()
@@ -387,154 +761,72 @@ class TestDbManager(IsolatedAsyncioTestCase):
     except:
       self.fail("DbManager.setup() raised unexpectedly")
 
-  async def test_register_participant(self):
+  async def test_CRUD_volunteer(self):
     try:
       async with self.manager.use_connection() as conn:
-        id = await self.manager.register_participant(conn, "qwerty")
+        event_id = await self.manager.events.create(conn, "2024-01-21", "09:00")
+        role_id_1 = await self.manager.roles.create(conn, "Role1", "🤸")
+        participant_id_1 = await self.manager.participants.register(conn, 12345, "Participant1")
+        role_id_2 = await self.manager.roles.create(conn, "Role2", "🤸")
+        participant_id_2 = await self.manager.participants.register(conn, 12346, "Participant2")
+        participant_id_3 = await self.manager.participants.register(conn, 12347, "Participant3")
     except:
-      self.fail("DbManager.register_participant() raised unexpectedly")
+      self.fail("VolunteerOrm initial steps raised unexpectedly")
 
-    self.assertEqual(id, 1)
+    orm = VolunteerOrm()
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, event_id, role_id_1, participant_id_1)
+    except:
+      self.fail("VolunteerOrm.create() raised unexpectedly")
 
-  async def test_register_verst_participant(self):
-    async with self.manager.use_connection() as conn:
-      id = await self.manager.register_participant(conn, "qwerty")
+    self.assertEqual(id, (1, 1))
 
-      try:
-        await self.manager.register_verst_participant(conn, id, 12345, "https://5verst.ru/userstats/12345")
-      except:
-        self.fail("DbManager.register_verst_participant() raised unexpectedly")
+    try:
+      await orm.update(conn, *id, **{"participant_id": participant_id_3})
+    except:
+      self.fail("VolunteerOrm.update() raised unexpectedly")
 
-      self.assertEqual(id, 1)
+    try:
+      async with self.manager.use_connection() as conn:
+        volunteer = await orm.get(conn, *id)
+    except:
+      self.fail("VolunteerOrm.get() raised unexpectedly")
 
-  async def test_update_participant(self):
-    async with self.manager.use_connection() as conn:
-      id = await self.manager.register_participant(conn, "qwerty")
+    self.assertEqual(volunteer.event_id, event_id)
+    self.assertEqual(volunteer.role_id, role_id_1)
+    self.assertEqual(volunteer.participant_id, participant_id_3)
 
-      try:
-        await self.manager.update_participant(conn, id, "name", "surname", 10)
-      except:
-        self.fail("DbManager.update_participant() raised unexpectedly")
+    try:
+      async with self.manager.use_connection() as conn:
+        id = await orm.create(conn, event_id, role_id_2, participant_id_2)
+    except:
+      self.fail("VolunteerOrm.create() raised unexpectedly")
 
-      self.assertEqual(id, 1)
+    try:
+      async with self.manager.use_connection() as conn:
+        volunteers = await orm.list(conn)
+    except:
+      self.fail("VolunteerOrm.list() raised unexpectedly")
 
-  async def test_CRUD_volunteer_position(self):
-    async with self.manager.use_connection() as conn:
-      try:
-        id = await self.manager.create_volunteer_position(conn, "Position1", "🦺")
-      except:
-        self.fail("DbManager.create_volunteer_position() raised unexpectedly")
+    self.assertEqual(len(volunteers), 2)
+    self.assertEqual(volunteers[0].event_id, 1)
+    self.assertEqual(volunteers[0].role_id, role_id_1)
+    self.assertEqual(volunteers[0].participant_id, participant_id_3)
+    self.assertEqual(volunteers[1].event_id, 1)
+    self.assertEqual(volunteers[1].role_id, role_id_2)
+    self.assertEqual(volunteers[1].participant_id, participant_id_2)
 
-      self.assertEqual(id, 1)
+    try:
+      async with self.manager.use_connection() as conn:
+        await orm.delete(conn, *id)
+    except:
+      self.fail("VolunteerOrm.delete() raised unexpectedly")
 
-      try:
-        pos = await self.manager.get_volunteer_position(conn, id)
-      except:
-        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
+    try:
+      async with self.manager.use_connection() as conn:
+        volunteer = await orm.get(conn, *id)
+    except:
+      self.fail("VolunteerOrm.get() raised unexpectedly")
 
-      self.assertEqual(pos[0], 1)
-      self.assertEqual(pos[1], "Position1")
-      self.assertEqual(pos[2], "🦺")
-
-      try:
-        pos = await self.manager.update_volunteer_position(conn, id, "Position2", "⏱️")
-      except:
-        self.fail("DbManager.update_volunteer_position() raised unexpectedly")
-
-      try:
-        pos = await self.manager.get_volunteer_position(conn, id)
-      except:
-        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
-
-      self.assertEqual(pos[0], 1)
-      self.assertEqual(pos[1], "Position2")
-      self.assertEqual(pos[2], "⏱️")
-
-      try:
-        await self.manager.delete_volenteer_position(conn, id)
-      except:
-        self.fail("DbManager.delete_volunteer_position() raised unexpectedly")
-
-      result = await self.manager.get_volunteer_position(conn, id)
-      self.assertEqual(result, None)
-
-  async def test_register_event(self):
-    async with self.manager.use_connection() as conn:
-      try:
-        id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
-      except:
-        self.fail("DbManager.register_event() raised unexpectedly")
-
-      self.assertEqual(id, 1)
-
-  async def test_get_event(self):
-    async with self.manager.use_connection() as conn:
-      id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
-
-      try:
-        row = await self.manager.get_event(conn, id)
-      except:
-        self.fail("DbManager.get_event() raised unexpectedly")
-
-      self.assertEqual(row[0], 1)
-      self.assertEqual(row[1], "2023-11-18 09:00:00.000")
-
-  async def test_CRUD_event_volunteer(self):
-    async with self.manager.use_connection() as conn:
-      event_id = await self.manager.register_event(conn, "2023-11-18 09:00:00.000")
-
-      pos_id1 = await self.manager.create_volunteer_position(conn, "Position1", "🦺")
-      pos_id2 = await self.manager.create_volunteer_position(conn, "Position2", "⏱️")
-      pos_id3 = await self.manager.create_volunteer_position(conn, "Position3", "🤸")
-
-      participant_id1 = await self.manager.register_participant(conn, "Participant1")
-      participant_id2 = await self.manager.register_participant(conn, "Participant2")
-      participant_id3 = await self.manager.register_participant(conn, "Participant3")
-      participant_id4 = await self.manager.register_participant(conn, "Participant4")
-
-      try:
-        row1 = await self.manager.create_event_volunteer(conn, event_id, pos_id1, participant_id1)
-        row2 = await self.manager.create_event_volunteer(conn, event_id, pos_id2, participant_id2)
-        row3 = await self.manager.create_event_volunteer(conn, event_id, pos_id3, participant_id3)
-      except:
-        self.fail("DbManager.create_event_volunteer() raised unexpectedly")
-
-      self.assertEqual(row1[0], event_id)
-      self.assertEqual(row1[1], pos_id1)
-
-      self.assertEqual(row2[0], event_id)
-      self.assertEqual(row2[1], pos_id2)
-
-      self.assertEqual(row3[0], event_id)
-      self.assertEqual(row3[1], pos_id3)
-
-      try:
-        row = await self.manager.get_event_volunteer(conn, event_id, pos_id2)
-      except:
-        self.fail("DbManager.get_event_volunteer() raised unexpectedly")
-
-      self.assertEqual(row[0], event_id)
-      self.assertEqual(row[1], pos_id2)
-      self.assertEqual(row[2], participant_id2)
-
-      try:
-        await self.manager.update_event_volunteer(conn, event_id, pos_id2, participant_id4)
-      except:
-        self.fail("DbManager.update_event_volunteer() raised unexpectedly")
-
-      try:
-        row = await self.manager.get_event_volunteer(conn, event_id, pos_id2)
-      except:
-        self.fail("DbManager.get_volunteer_position() raised unexpectedly")
-
-      self.assertEqual(row[0], event_id)
-      self.assertEqual(row[1], pos_id2)
-      self.assertEqual(row[2], participant_id4)
-
-      try:
-        await self.manager.delete_event_volenteer(conn, event_id, pos_id3)
-      except:
-        self.fail("DbManager.delete_event_volenteer() raised unexpectedly")
-
-      result = await self.manager.get_event_volunteer(conn, event_id, pos_id3)
-      self.assertEqual(result, None)
+    self.assertEqual(volunteer, None)
